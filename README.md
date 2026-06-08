@@ -50,7 +50,7 @@ OnDemand node):
 
 ### Open OnDemand
 
-- Open OnDemand 2.0+
+- Tested to work with the latest version of Open OnDemand
 - Slurm scheduler
 
 ## App Installation
