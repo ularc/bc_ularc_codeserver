@@ -1,56 +1,55 @@
-#!/usr/bin/bash -l
-<%
+#!/usr/bin/env bash
 
-# Set our working directory.
-working_dir = Pathname.new(context.working_dir)
+echo "Starting code-server script..."
 
-# Ensure that code-server always starts up in either a user defined directory or the home directory.
-if ! working_dir.exist?
-    working_dir = Pathname.new(ENV['HOME'])
-elsif working_dir.file?
-    working_dir = working_dir.parent
-end
-%>
+# 1. Purge modules and maintain system PATH
+module purge 2>/dev/null
+export PATH="/usr/bin:/bin:/usr/sbin:/sbin:${PATH}"
 
-CODE_SERVER_DATAROOT="$HOME/.local/share/code-server"
-mkdir -p "$CODE_SERVER_DATAROOT/extensions"
+# 2. Load miniforge and source Conda
+module load miniforge3 2>/dev/null || true
+source /mnt/apps/manual/miniforge3/25.3.1-0_gcc-11.4.1/etc/profile.d/conda.sh
 
-# Expose the password to the server.
-export PASSWORD="$password"
+# 3. Define dynamic environment path per user
+ENV_PATH="/work/${USER}/.conda/envs/codeserver_env"
 
-# Print compute node.
-echo "$(date): Running on compute node $(hostname):$port"
+# Verify environment exists
+if [ ! -d "${ENV_PATH}" ]; then
+    echo "ERROR: Environment ${ENV_PATH} does not exist!"
+    echo "Please create it on the login node first using:"
+    echo "  export CONDA_PKGS_DIRS=\"/work/\${USER}/.conda/pkgs\""
+    echo "  export TMPDIR=\"/work/\${USER}/tmp\""
+    echo "  conda create --prefix /work/\${USER}/.conda/envs/codeserver_env -c conda-forge code-server -y"
+    exit 1
+fi
 
-module load project/ondemand <%= context.auto_modules_app_code_server %>
+# 4. Activate dedicated code-server environment
+echo "Activating Conda env at ${ENV_PATH}..."
+conda activate "${ENV_PATH}"
 
-CPP_FILE="<%= working_dir.to_s %>/.vscode/c_cpp_properties.json"
+export PATH="${ENV_PATH}/bin:${PATH}"
 
-if [[ -f "$CPP_FILE" ]]; then
-    CPP_DIR="${TMPDIR:=/tmp/$USER}/cpp-vscode"
-    mkdir -p "$CPP_DIR"
-    chmod 700 "$CPP_DIR"
+# 5. Verify executable
+if ! command -v code-server &> /dev/null; then
+    echo "ERROR: 'code-server' binary not found after activation."
+    exit 1
+fi
 
-    # if the file is empty, let's initialize it
-    [ -s "$CPP_FILE" ] || echo '{"configurations": [{ "name": "Linux", "browse": { "databaseFilename": null }}], "version": 4}' > "$CPP_FILE"
+# 6. Set working directory
+export WORKING_DIR="<%= context.working_dir.blank? ? $HOME : context.working_dir %>"
+cd "${WORKING_DIR}"
 
-    jq --arg dbfile "$CPP_DIR/cpp-vscode.db" \
-      '.configurations[0].browse.databaseFilename = $dbfile' \
-      "$CPP_FILE" > "$CPP_FILE".new
+# 7. Set authentication and launch
+export PASSWORD="${password}"
+export DISABLE_TELEMETRY="true"
+export DISABLE_UPDATE_CHECK="true"
 
-    mv "$CPP_FILE".new "$CPP_FILE"
-  fi
-
-#
-# Start Code Server.
-#
-echo "$(date): Started code-server"
-echo ""
-
-code-server \
-    --auth="password" \
-    --bind-addr="0.0.0.0:${port}" \
-    --disable-telemetry \
-    --ignore-last-opened \
-    --user-data-dir="$CODE_SERVER_DATAROOT" \
-    --log debug \
-    "<%= working_dir.to_s %>"
+set -x
+exec code-server \
+  --auth="none" \
+  --bind-addr="0.0.0.0:${port}" \
+  --disable-telemetry \
+  --disable-update-check \
+  --user-data-dir="${HOME}/.local/share/code-server" \
+  --extensions-dir="${HOME}/.local/share/code-server/extensions" \
+  "${WORKING_DIR}"
