@@ -4,7 +4,8 @@ cluster:
   - "zurada"
 
 form:
-  - auto_accounts
+  - bc_account
+  - bc_queue
   - bc_num_hours
   - working_dir
   - auto_modules_app_code_server
