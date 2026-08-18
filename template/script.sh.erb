@@ -44,6 +44,10 @@ export PASSWORD="${password}"
 export DISABLE_TELEMETRY="true"
 export DISABLE_UPDATE_CHECK="true"
 
+# Redirect runtime sockets away from system /run/user
+export XDG_RUNTIME_DIR="/tmp/runtime-${USER}"
+mkdir -p -m 700 "${XDG_RUNTIME_DIR}"
+
 set -x
 exec code-server \
   --auth="none" \
