@@ -23,3 +23,7 @@ batch_connect:
   template: "basic"
   conn_params:
     - code_server_version
+script:
+  native:
+    - "--job-name"
+    - "<%= bc_job_name %>"

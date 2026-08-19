@@ -4,12 +4,17 @@ cluster:
   - "zurada"
 
 form:
+  - bc_job_name
   - bc_account
   - bc_queue
   - bc_num_hours
   - working_dir
   - auto_modules_app_code_server
 attributes:
+  bc_job_name:
+    value: "vscode"
+    label: "Job Name"
+    required: true
   auto_modules_app_code_server:
     default: false
   working_dir:
